@@ -7,6 +7,7 @@
 // ---------------------------------------------------------------------
 #define F_CPU    16000000UL
 #define BOUNCE_DELAY 8 //ms
+#define DISPLAY_DELAY 10 //ms
 #define MINTHR      50
 #define MAXTHR      400
 // Entradas:
@@ -42,18 +43,20 @@
 // Variables globales
 // -------------------------------------------------------------------
 volatile int FlagP1 = 1, FlagP2 = 1, FlagP3 = 1;
-int number = 0, count = 0, thresh = MINTHR;
+int number = 0, count = 0, thresh = MINTHR, FlagDisplay = 1;
+unsigned char unit, ten, hundred;
 
 // Declararacion de funciones
 // -------------------------------------------------------------------
 void initPorts();
 void boot();
 void initExternalInterrupts();
-void Timer0_Init();
 void mcf();
 void mct();
 void alarm10();
-void display(int n);
+void display();
+void decimalToBCD(unsigned char*, unsigned char*, unsigned char*);
+void outBCD(int n);
 
 // Interrupciones externas
 // -------------------------------------------------------------------
@@ -77,11 +80,6 @@ ISR(INT2_vect){
 		FlagP3 = 1;                 // Establecer la bandera para indicar la interrupcion
 	}
 }
-
-ISR(TIMER0_COMPA_vect) {
-    // Código a ejecutar cuando se complete el temporizador de 10 segundos
-}
-
 
 // Programa
 // -------------------------------------------------------------------
@@ -121,20 +119,20 @@ void boot(){
 	// Secuencia de Arranque
 	sbi(PORTA, NUM3); // Numero 8 en BCD
 
-	for(int i=0; i<10; i++){
+	for(int i=0; i<5; i++){
 		// Enciende y apaga display unidad
 		sbi(PORTA, UNIT);       
-		_delay_ms(50);
+		_delay_ms(DISPLAY_DELAY);
 		cbi(PORTA, UNIT);
 
 		// Enciende y apaga display decena
 		sbi(PORTA, TEN);       
-		_delay_ms(50);
+		_delay_ms(DISPLAY_DELAY);
 		cbi(PORTA, TEN);
 
 		// Enciende y apaga display centena
 		sbi(PORTA, HUND);       
-		_delay_ms(50);
+		_delay_ms(DISPLAY_DELAY);
 		cbi(PORTA, HUND);
 
 		_delay_ms(400);
@@ -151,24 +149,6 @@ void initExternalInterrupts(){
 	sei();							                        // Habilita las interrup. globalmente.
 }
 
-void Timer0_Init() {
-    // Configura el modo CTC (Clear Timer on Compare Match)
-    TCCR0A |= (1 << WGM01);
-    
-    // Configura el preescalador para que el temporizador cuente cada 64 microsegundos
-    TCCR0B |= (1 << CS00) | (1 << CS01);
-    
-    // Calcula el valor de OCR0A para 10 segundos
-    // 10 segundos / (64 * 10^-6 segundos) = 156250
-    OCR0A = 156250;
-    
-    // Habilita la interrupción de comparación para OCR0A
-    TIMSK0 |= (1 << OCIE0A);
-    
-    // Habilita las interrupciones globales
-    sei();
-}
-
 // Modo Configuracion
 void mcf(){
 	// Incremento del umbral
@@ -181,7 +161,7 @@ void mcf(){
 		}
 		FlagP1=1;
 	}
-	// Decremento del umbral
+	// Decremento del umbral (esta opcion no se solicita en la consigna)
 	if(!FlagP3){
 		if(thresh!=MINTHR){
 			thresh--;
@@ -191,7 +171,11 @@ void mcf(){
 		}
 		FlagP3=1;
 	}
-	number = thresh;
+
+	if(number!=thresh){
+		number = thresh;
+		FlagDisplay=1;
+	}
 	
 	// Enciende el led que indica el modo configuracion
 	sbi(PORTB,LEDMCF);
@@ -220,7 +204,10 @@ void mct(){
 		FlagP1=1;
 	}
 
-	number=count;
+	if(number!=count){
+		number=count;
+		FlagDisplay=1;
+	}
 
 	// Enciende el led que indica el modo CONTADOR
 	sbi(PORTB,LEDMCT);
@@ -236,8 +223,8 @@ void alarm10(){
 	* Utilizar Temporizador. */
 }
 
-void display(int n){
-	/* display(number):
+void display(){
+	/*
 	* Recibe un numero entre 0 y 999.
 	* Debe obtener el codigo BCD de la unidad, decena y centena del mismo.
 	* Debe multiplexar adecuadamente los display (con UNIT, TEN y HUND) y mostrar el
@@ -246,4 +233,111 @@ void display(int n){
 						000 -> 0 (Elimina centena y decena)
 						050 -> (Elimina centena)
 						089 -> (Elimina centena) */
+	if(FlagDisplay){
+		decimalToBCD(&unit, &ten, &hundred);
+		FlagDisplay = 0;
+	}
+
+	// Se muestra la unidad
+	outBCD(unit);
+	sbi(PORTA,UNIT);
+	_delay_ms(DISPLAY_DELAY);
+	cbi(PORTA,UNIT);
+
+	// Se muestra la decena
+	outBCD(ten);
+	sbi(PORTA,TEN);
+	_delay_ms(DISPLAY_DELAY);
+	cbi(PORTA,TEN);
+
+	// Se muestra la centena
+	outBCD(hundred);
+	sbi(PORTA,HUND);
+	_delay_ms(DISPLAY_DELAY);
+	cbi(PORTA,HUND);
+
+}
+
+void decimalToBCD(unsigned char *unit, unsigned char *ten, unsigned char *hundred){
+	*unit = (number % 10) & 0x0F;
+	*ten = ((number/10) % 10) & 0x0F;
+	*hundred = (number / 100) & 0x0F;
+}
+
+void outBCD(int n){
+	switch (n)
+	{
+	case 0:
+		cbi(PORTA, NUM0);
+		cbi(PORTA, NUM1);
+		cbi(PORTA, NUM2);
+		cbi(PORTA, NUM3);
+		break;
+	
+	case 1:
+		sbi(PORTA, NUM0);
+		cbi(PORTA, NUM1);
+		cbi(PORTA, NUM2);
+		cbi(PORTA, NUM3);
+		break;
+	
+	case 2:
+		cbi(PORTA, NUM0);
+		sbi(PORTA, NUM1);
+		cbi(PORTA, NUM2);
+		cbi(PORTA, NUM3);
+		break;
+
+	case 3:
+		sbi(PORTA, NUM0);
+		sbi(PORTA, NUM1);
+		cbi(PORTA, NUM2);
+		cbi(PORTA, NUM3);
+		break;
+
+	case 4:
+		cbi(PORTA, NUM0);
+		cbi(PORTA, NUM1);
+		sbi(PORTA, NUM2);
+		cbi(PORTA, NUM3);
+		break;
+	
+	case 5:
+		sbi(PORTA, NUM0);
+		cbi(PORTA, NUM1);
+		sbi(PORTA, NUM2);
+		cbi(PORTA, NUM3);
+		break;
+
+	case 6:
+		cbi(PORTA, NUM0);
+		sbi(PORTA, NUM1);
+		sbi(PORTA, NUM2);
+		cbi(PORTA, NUM3);
+		break;
+
+	case 7:
+		sbi(PORTA, NUM0);
+		sbi(PORTA, NUM1);
+		sbi(PORTA, NUM2);
+		cbi(PORTA, NUM3);
+		break;
+
+	case 8:
+		cbi(PORTA, NUM0);
+		cbi(PORTA, NUM1);
+		cbi(PORTA, NUM2);
+		sbi(PORTA, NUM3);
+		break;
+
+	case 9:
+		sbi(PORTA, NUM0);
+		cbi(PORTA, NUM1);
+		cbi(PORTA, NUM2);
+		sbi(PORTA, NUM3);
+		break;
+
+	default:
+		break;
+	}
 }
