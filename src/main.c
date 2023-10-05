@@ -106,7 +106,7 @@ int main(void){
 void initPorts(){
 	// Se configura e inicializa los puertos
 	DDRA = 0xFF;     // Puerto C todo como salida
-	PORTC = 0x00;    // Inicializa el puerto C
+	PORTA = 0x00;    // Inicializa el puerto A
 
 	DDRB = 0x03;     // PB0 y PB1 como salida
 	PORTB = 0x00;    // Inicializa PB0 y PB1
@@ -224,33 +224,25 @@ void alarm10(){
 }
 
 void display(){
-	/*
-	* Recibe un numero entre 0 y 999.
-	* Debe obtener el codigo BCD de la unidad, decena y centena del mismo.
-	* Debe multiplexar adecuadamente los display (con UNIT, TEN y HUND) y mostrar el
-		codigo correspondiente.
-	* Si es posible, contemplar los casos de los ceros mas significativos. Ej :
-						000 -> 0 (Elimina centena y decena)
-						050 -> (Elimina centena)
-						089 -> (Elimina centena) */
-	if(FlagDisplay){
+
+	if(FlagDisplay){                          //si hubo un cambio en number, calcula sus digitos
 		decimalToBCD(&unit, &ten, &hundred);
 		FlagDisplay = 0;
 	}
 
-	// Se muestra la unidad
+	// Muestra la unidad
 	outBCD(unit);
 	sbi(PORTA,UNIT);
 	_delay_ms(DISPLAY_DELAY);
 	cbi(PORTA,UNIT);
 
-	// Se muestra la decena
+	// Muestra la decena
 	outBCD(ten);
 	sbi(PORTA,TEN);
 	_delay_ms(DISPLAY_DELAY);
 	cbi(PORTA,TEN);
 
-	// Se muestra la centena
+	// Muestra la centena
 	outBCD(hundred);
 	sbi(PORTA,HUND);
 	_delay_ms(DISPLAY_DELAY);
@@ -265,6 +257,13 @@ void decimalToBCD(unsigned char *unit, unsigned char *ten, unsigned char *hundre
 }
 
 void outBCD(int n){
+	PORTA &= 0xF0;                  // Limpia los 4 bits menos significativos correspondientes al codigo BCD
+
+	if(n>=1 && n<=9){               // Verifica el rango de n
+		PORTA |= (n & 0x0F);        // Asigna el numero n a los 4 bits inferiores de PORTA
+	}
+}
+/* void outBCD(int n){
 	switch (n)
 	{
 	case 0:
@@ -340,4 +339,4 @@ void outBCD(int n){
 	default:
 		break;
 	}
-}
+} */
