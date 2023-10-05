@@ -70,14 +70,14 @@ ISR(INT0_vect){
 ISR(INT1_vect){
 	_delay_ms(BOUNCE_DELAY);
 	if (is_low(PIND,P1)){           // Comprueba si P1 sigue en BAJO
-		FlagP1 = 1;                 // Establecer la bandera para indicar la interrupcion
+		FlagP1 = 0;                 // Establecer la bandera para indicar la interrupcion
 	}
 }
 
 ISR(INT2_vect){
 	_delay_ms(BOUNCE_DELAY);
 	if (is_low(PIND,P3)){           // Comprueba si P3 sigue en BAJO
-		FlagP3 = 1;                 // Establecer la bandera para indicar la interrupcion
+		FlagP3 = 0;                 // Establecer la bandera para indicar la interrupcion
 	}
 }
 
@@ -97,7 +97,7 @@ int main(void){
 		else{
 			mct();
 		}
-		display(number);
+		display();
 	}
 }
 
