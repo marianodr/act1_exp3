@@ -49,6 +49,7 @@ int number = 0, count = 0, thresh = MINTHR;
 void initPorts();
 void boot();
 void initExternalInterrupts();
+void Timer0_Init();
 void mcf();
 void mct();
 void alarm10();
@@ -76,6 +77,11 @@ ISR(INT2_vect){
 		FlagP3 = 1;                 // Establecer la bandera para indicar la interrupcion
 	}
 }
+
+ISR(TIMER0_COMPA_vect) {
+    // Código a ejecutar cuando se complete el temporizador de 10 segundos
+}
+
 
 // Programa
 // -------------------------------------------------------------------
@@ -143,6 +149,24 @@ void initExternalInterrupts(){
 	EIMSK |= (1 << INT0) | (1 << INT1) | (1 << INT2);	    // Habilita INT0, INT1 e INT2
 	EIFR = 0x00;
 	sei();							                        // Habilita las interrup. globalmente.
+}
+
+void Timer0_Init() {
+    // Configura el modo CTC (Clear Timer on Compare Match)
+    TCCR0A |= (1 << WGM01);
+    
+    // Configura el preescalador para que el temporizador cuente cada 64 microsegundos
+    TCCR0B |= (1 << CS00) | (1 << CS01);
+    
+    // Calcula el valor de OCR0A para 10 segundos
+    // 10 segundos / (64 * 10^-6 segundos) = 156250
+    OCR0A = 156250;
+    
+    // Habilita la interrupción de comparación para OCR0A
+    TIMSK0 |= (1 << OCIE0A);
+    
+    // Habilita las interrupciones globales
+    sei();
 }
 
 // Modo Configuracion
