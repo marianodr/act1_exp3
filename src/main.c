@@ -7,7 +7,7 @@
 // ---------------------------------------------------------------------
 #define F_CPU    16000000UL
 #define BOUNCE_DELAY 8 //ms
-#define DISPLAY_DELAY 10 //ms
+#define DISPLAY_DELAY 5 //ms
 #define MINTHR      50
 #define MAXTHR      400
 // Entradas:
@@ -23,8 +23,8 @@
 #define TEN        PA5
 #define HUND       PA6
 #define ALARM      PA7
-#define LEDMCF     PB0
-#define LEDMCT     PB1
+#define LEDMCF     PC6 //PB0
+#define LEDMCT     PC7 //PB1
 
 // Macros de usuario
 // -------------------------------------------------------------------
@@ -42,8 +42,9 @@
 
 // Variables globales
 // -------------------------------------------------------------------
-volatile int FlagP1 = 1, FlagP2 = 1, FlagP3 = 1;
+volatile int FlagP1 = 1, FlagP2 = 1, FlagP3 = 1, FlagALARM = 0;
 int number = 0, count = 0, thresh = MINTHR, FlagDisplay = 1;
+unsigned int timer=0, actual = 0;
 unsigned char unit, ten, hundred;
 
 // Declararacion de funciones
@@ -81,13 +82,20 @@ ISR(INT2_vect){
 	}
 }
 
+ISR(TIMER0_COMPA_vect) {
+    // Cada 1 segundo ocurre una interrupcion e incrementa el timer
+	timer++;
+}
+
 // Programa
 // -------------------------------------------------------------------
 int main(void){
 
 	initPorts();
+	Timer0_Init();
 	boot();
 	initExternalInterrupts();
+	sei();
 
 	// Inicio
 	while(1){
@@ -108,8 +116,11 @@ void initPorts(){
 	DDRA = 0xFF;     // Puerto A todo como salida
 	PORTA = 0x70;    // Inicializa el puerto A
 
-	DDRB = 0x03;     // PB0 y PB1 como salida
-	PORTB = 0x00;    // Inicializa PB0 y PB1
+	//DDRB = 0x03;     // PB0 y PB1 como salida
+	//PORTB = 0x00;    // Inicializa PB0 y PB1
+
+	DDRC = 0XC0;	   // PC6 y PC7 como salida
+	PORTC = 0X00;      // Inicializa PC6 y PC7
 
 	// Se configura a PD0, PD1 y PD2 como puertos de entrada con resistencia pull-up internas:
 	PORTD = (1 << P1) | (1 << P2) | (1 << P3);
@@ -120,22 +131,24 @@ void boot(){
 	sbi(PORTA, NUM3); // Numero 8 en BCD
 
 	for(int i=0; i<5; i++){
-		// Enciende y apaga display unidad
-		cbi(PORTA, UNIT);       
-		_delay_ms(DISPLAY_DELAY);
-		sbi(PORTA, UNIT);
+		for(int i=0; i<30; i++){
+			// Enciende y apaga display unidad
+			cbi(PORTA, UNIT);       
+			_delay_ms(DISPLAY_DELAY);
+			sbi(PORTA, UNIT);
 
-		// Enciende y apaga display decena
-		cbi(PORTA, TEN);       
-		_delay_ms(DISPLAY_DELAY);
-		sbi(PORTA, TEN);
+			// Enciende y apaga display decena
+			cbi(PORTA, TEN);       
+			_delay_ms(DISPLAY_DELAY);
+			sbi(PORTA, TEN);
 
-		// Enciende y apaga display centena
-		cbi(PORTA, HUND);       
-		_delay_ms(DISPLAY_DELAY);
-		sbi(PORTA, HUND);
+			// Enciende y apaga display centena
+			cbi(PORTA, HUND);       
+			_delay_ms(DISPLAY_DELAY);
+			sbi(PORTA, HUND);
+		}
 
-		_delay_ms(400);
+		_delay_ms(500);
 	}
 
 	PORTA = 0x70; // Deshabilita los puertos que controlan los transistores
@@ -178,8 +191,8 @@ void mcf(){
 	}
 	
 	// Enciende el led que indica el modo configuracion
-	sbi(PORTB,LEDMCF);
-	cbi(PORTB,LEDMCT);
+	sbi(PORTC,LEDMCF);
+	cbi(PORTC,LEDMCT);
 }
 
 // Modo Contador
@@ -187,7 +200,7 @@ void mct(){
 	// Deteccion de paquete
 	if(!FlagP3){
 		if(count!=999){
-			count++;
+			count++;         //count+=5;
 		}
 		else {
 			count=0;
@@ -196,9 +209,22 @@ void mct(){
 	}
 	
 	// Se enciende la alarma si la cantidad de packs alcanzó el umbral
-	if(count==thresh)
-		alarm10();
-	
+	if(count>=thresh)
+		//alarm10();
+		if(!FlagALARM){
+			actual = timer;
+			FlagALARM = 1;
+			//Prender Rele
+			sbi(PORTA,ALARM);
+		}
+		
+		//Preguntar si pasaron 10 segundos
+		if(timer-actual >= 10 && FlagALARM){
+			//Apagar rele
+			cbi(PORTA,ALARM);
+			FlagALARM = 0;
+		}
+			
 	if(!FlagP1){
 		count=0;
 		FlagP1=1;
@@ -210,18 +236,33 @@ void mct(){
 	}
 
 	// Enciende el led que indica el modo CONTADOR
-	sbi(PORTB,LEDMCT);
-	cbi(PORTB,LEDMCF);
+	sbi(PORTC,LEDMCT);
+	cbi(PORTC,LEDMCF);
 
 }
 
-void alarm10(){
+/* void alarm10(){
 	/* 
 	alarm10:
 	* Debe activar la salida ALARM durante 10 segundos.
 	* ¿Como debe actuar el sistema durante la alarma? (si cambia de modo).
-	* Utilizar Temporizador. */
-}
+	* Utilizar Temporizador. 
+	//sbi(PORTA,ALARM);
+	
+	if(!FlagALARM){
+		sbi(PORTA,ALARM);
+		timer=0;
+		T
+		//FlagALARM = 1;
+	}
+
+	if(timer<10 && FlagALARM){
+		cbi(PORTA,ALARM);
+		timer=0;
+		FlagALARM = 0;
+	}
+					
+} */
 
 void display(){
 
@@ -262,4 +303,21 @@ void outBCD(int n){
 	if(n>=1 && n<=9){               // Verifica el rango de n
 		PORTA |= (n & 0x0F);        // Asigna el numero n a los 4 bits inferiores de PORTA
 	}
+}
+
+void Timer0_Init() {
+    // Configura el modo CTC (Clear Timer on Compare Match)
+    TCCR0A |= (1 << WGM01);
+    
+    // Configura el preescalador para que el temporizador cuente cada 1024 microsegundos
+    TCCR0B |= (1 << CS00) | (1 << CS02);
+    
+    // Calcula el valor de OCR0A para 10 segundos
+	//Calculadora JP: Prescaler 1024, TCNT=49911, OCR1A=15624
+
+    OCR1A = 15624;
+    
+    // Habilita la interrupción de comparación para OCR0A
+    TIMSK0 |= (1 << OCIE0A);
+
 }
