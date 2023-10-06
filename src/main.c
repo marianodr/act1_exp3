@@ -105,8 +105,8 @@ int main(void){
 // ----------------------------------------------------------------------------------------
 void initPorts(){
 	// Se configura e inicializa los puertos
-	DDRA = 0xFF;     // Puerto C todo como salida
-	PORTA = 0x00;    // Inicializa el puerto A
+	DDRA = 0xFF;     // Puerto A todo como salida
+	PORTA = 0x70;    // Inicializa el puerto A
 
 	DDRB = 0x03;     // PB0 y PB1 como salida
 	PORTB = 0x00;    // Inicializa PB0 y PB1
@@ -121,24 +121,24 @@ void boot(){
 
 	for(int i=0; i<5; i++){
 		// Enciende y apaga display unidad
-		sbi(PORTA, UNIT);       
+		cbi(PORTA, UNIT);       
 		_delay_ms(DISPLAY_DELAY);
-		cbi(PORTA, UNIT);
+		sbi(PORTA, UNIT);
 
 		// Enciende y apaga display decena
-		sbi(PORTA, TEN);       
+		cbi(PORTA, TEN);       
 		_delay_ms(DISPLAY_DELAY);
-		cbi(PORTA, TEN);
+		sbi(PORTA, TEN);
 
 		// Enciende y apaga display centena
-		sbi(PORTA, HUND);       
+		cbi(PORTA, HUND);       
 		_delay_ms(DISPLAY_DELAY);
-		cbi(PORTA, HUND);
+		sbi(PORTA, HUND);
 
 		_delay_ms(400);
 	}
 
-	PORTA = 0x00; // Apaga los puertos
+	PORTA = 0x70; // Deshabilita los puertos que controlan los transistores
 }
 
 void initExternalInterrupts(){
@@ -232,21 +232,21 @@ void display(){
 
 	// Muestra la unidad
 	outBCD(unit);
-	sbi(PORTA,UNIT);
-	_delay_ms(DISPLAY_DELAY);
 	cbi(PORTA,UNIT);
+	_delay_ms(DISPLAY_DELAY);
+	sbi(PORTA,UNIT);
 
 	// Muestra la decena
 	outBCD(ten);
-	sbi(PORTA,TEN);
-	_delay_ms(DISPLAY_DELAY);
 	cbi(PORTA,TEN);
+	_delay_ms(DISPLAY_DELAY);
+	sbi(PORTA,TEN);
 
 	// Muestra la centena
 	outBCD(hundred);
-	sbi(PORTA,HUND);
-	_delay_ms(DISPLAY_DELAY);
 	cbi(PORTA,HUND);
+	_delay_ms(DISPLAY_DELAY);
+	sbi(PORTA,HUND);
 
 }
 
