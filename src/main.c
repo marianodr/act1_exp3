@@ -52,9 +52,10 @@ unsigned char unit, ten, hundred;
 void initPorts();
 void boot();
 void initExternalInterrupts();
+void initTimer0();
 void mcf();
 void mct();
-void alarm10();
+//void alarm10();
 void display();
 void decimalToBCD(unsigned char*, unsigned char*, unsigned char*);
 void outBCD(int n);
@@ -92,9 +93,9 @@ ISR(TIMER0_COMPA_vect) {
 int main(void){
 
 	initPorts();
-	Timer0_Init();
 	boot();
 	initExternalInterrupts();
+	initTimer0();
 	sei();
 
 	// Inicio
@@ -159,7 +160,23 @@ void initExternalInterrupts(){
 	EICRA |= (1 << ISC01) | (1 << ISC11) | (1 << ISC21);;	// Configura INT0, INT1 e INT2 sensible a flanco desc.
 	EIMSK |= (1 << INT0) | (1 << INT1) | (1 << INT2);	    // Habilita INT0, INT1 e INT2
 	EIFR = 0x00;
-	sei();							                        // Habilita las interrup. globalmente.
+	//sei();							                    // Habilita las interrup. globalmente.
+}
+
+void initTimer0(){
+    // Configura el modo CTC (Clear Timer on Compare Match)
+    TCCR0A |= (1 << WGM01);
+
+    // Configura el preescalador para que el temporizador cuente cada 1024 microsegundos
+    TCCR0B |= (1 << CS00) | (1 << CS02);
+
+    // Calcula el valor de OCR0A para 10 segundos
+	//Calculadora JP: Prescaler 1024, TCNT=49911, OCR1A=15624
+
+    OCR1A = 15624;
+
+    // Habilita la interrupción de comparación para OCR0A
+    TIMSK0 |= (1 << OCIE0A);
 }
 
 // Modo Configuracion
@@ -174,6 +191,7 @@ void mcf(){
 		}
 		FlagP1=1;
 	}
+
 	// Decremento del umbral (esta opcion no se solicita en la consigna)
 	if(!FlagP3){
 		if(thresh!=MINTHR){
@@ -185,11 +203,12 @@ void mcf(){
 		FlagP3=1;
 	}
 
+	// Actualizacion del numero a mostrar en el display
 	if(number!=thresh){
 		number = thresh;
 		FlagDisplay=1;
 	}
-	
+
 	// Enciende el led que indica el modo configuracion
 	sbi(PORTC,LEDMCF);
 	cbi(PORTC,LEDMCT);
@@ -207,9 +226,9 @@ void mct(){
 		}
 		FlagP3=1;
 	}
-	
+
 	// Se enciende la alarma si la cantidad de packs alcanzó el umbral
-	if(count>=thresh)
+	if(count>=thresh){
 		//alarm10();
 		if(!FlagALARM){
 			actual = timer;
@@ -217,19 +236,22 @@ void mct(){
 			//Prender Rele
 			sbi(PORTA,ALARM);
 		}
-		
+
 		//Preguntar si pasaron 10 segundos
 		if(timer-actual >= 10 && FlagALARM){
 			//Apagar rele
 			cbi(PORTA,ALARM);
 			FlagALARM = 0;
 		}
-			
+	}
+
+	// Reinicio de contador a traves de P1
 	if(!FlagP1){
 		count=0;
 		FlagP1=1;
 	}
 
+	// Actualizacion del numero a mostrar en el display
 	if(number!=count){
 		number=count;
 		FlagDisplay=1;
@@ -238,31 +260,7 @@ void mct(){
 	// Enciende el led que indica el modo CONTADOR
 	sbi(PORTC,LEDMCT);
 	cbi(PORTC,LEDMCF);
-
 }
-
-/* void alarm10(){
-	/* 
-	alarm10:
-	* Debe activar la salida ALARM durante 10 segundos.
-	* ¿Como debe actuar el sistema durante la alarma? (si cambia de modo).
-	* Utilizar Temporizador. 
-	//sbi(PORTA,ALARM);
-	
-	if(!FlagALARM){
-		sbi(PORTA,ALARM);
-		timer=0;
-		T
-		//FlagALARM = 1;
-	}
-
-	if(timer<10 && FlagALARM){
-		cbi(PORTA,ALARM);
-		timer=0;
-		FlagALARM = 0;
-	}
-					
-} */
 
 void display(){
 
@@ -305,19 +303,23 @@ void outBCD(int n){
 	}
 }
 
-void Timer0_Init() {
-    // Configura el modo CTC (Clear Timer on Compare Match)
-    TCCR0A |= (1 << WGM01);
-    
-    // Configura el preescalador para que el temporizador cuente cada 1024 microsegundos
-    TCCR0B |= (1 << CS00) | (1 << CS02);
-    
-    // Calcula el valor de OCR0A para 10 segundos
-	//Calculadora JP: Prescaler 1024, TCNT=49911, OCR1A=15624
+/* void alarm10(){
+	alarm10:
+	* Debe activar la salida ALARM durante 10 segundos.
+	* ¿Como debe actuar el sistema durante la alarma? (si cambia de modo).
+	* Utilizar Temporizador.
+	//sbi(PORTA,ALARM);
 
-    OCR1A = 15624;
-    
-    // Habilita la interrupción de comparación para OCR0A
-    TIMSK0 |= (1 << OCIE0A);
+	if(!FlagALARM){
+		sbi(PORTA,ALARM);
+		timer=0;
+		T
+		//FlagALARM = 1;
+	}
 
-}
+	if(timer<10 && FlagALARM){
+		cbi(PORTA,ALARM);
+		timer=0;
+		FlagALARM = 0;
+	}
+}*/
