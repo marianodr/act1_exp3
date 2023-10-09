@@ -134,17 +134,17 @@ void boot(){
 	for(int i=0; i<5; i++){
 		for(int i=0; i<30; i++){
 			// Enciende y apaga display unidad
-			cbi(PORTA, UNIT);       
+			cbi(PORTA, UNIT);
 			_delay_ms(DISPLAY_DELAY);
 			sbi(PORTA, UNIT);
 
 			// Enciende y apaga display decena
-			cbi(PORTA, TEN);       
+			cbi(PORTA, TEN);
 			_delay_ms(DISPLAY_DELAY);
 			sbi(PORTA, TEN);
 
 			// Enciende y apaga display centena
-			cbi(PORTA, HUND);       
+			cbi(PORTA, HUND);
 			_delay_ms(DISPLAY_DELAY);
 			sbi(PORTA, HUND);
 		}
@@ -276,16 +276,20 @@ void display(){
 	sbi(PORTA,UNIT);
 
 	// Muestra la decena
-	outBCD(ten);
-	cbi(PORTA,TEN);
-	_delay_ms(DISPLAY_DELAY);
-	sbi(PORTA,TEN);
+	if(ten != 0 || hundred != 0){
+		outBCD(ten);
+		cbi(PORTA,TEN);
+		_delay_ms(DISPLAY_DELAY);
+		sbi(PORTA,TEN);
+	}
 
 	// Muestra la centena
-	outBCD(hundred);
-	cbi(PORTA,HUND);
-	_delay_ms(DISPLAY_DELAY);
-	sbi(PORTA,HUND);
+	if(hundred != 0){
+		outBCD(hundred);
+		cbi(PORTA,HUND);
+		_delay_ms(DISPLAY_DELAY);
+		sbi(PORTA,HUND);
+	}
 
 }
 
