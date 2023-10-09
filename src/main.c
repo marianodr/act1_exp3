@@ -44,7 +44,7 @@
 
 // Variables globales
 // -------------------------------------------------------------------
-volatile int FlagP1 = 1, FlagP2 = 1, FlagP3 = 1, FlagALARM = 0, StateAlarm = 0, FlagPrueba = 0;
+volatile int FlagP1 = 1, FlagP2 = 1, FlagP3 = 1, FlagALARM = 0, StateAlarm = 0;
 int number = 0, count = 0, thresh = MINTHR, FlagDisplay = 1;
 unsigned int ms_timer=0, actual = 0;
 unsigned char unit, ten, hundred;
@@ -104,18 +104,13 @@ int main(void){
 	// Inicio
 	while(1){
 		if(FlagP2){
-			mcf();           // Analizar la posibilidad de que mcf y mct retornen y asignen a number
+			mcf();
 		}
 		else{
 			mct();
 		}
 		display();
 		alarm();
-
-	/* 	if (FlagPrueba){
-			tbi(PORTA, ALARM);
-			FlagPrueba = 0;
-		} */
 	}
 }
 
@@ -125,9 +120,6 @@ void initPorts(){
 	// Se configura e inicializa los puertos
 	DDRA = 0xFF;     // Puerto A todo como salida
 	PORTA = 0x70;    // Inicializa el puerto A
-
-	//DDRB = 0x03;     // PB0 y PB1 como salida
-	//PORTB = 0x00;    // Inicializa PB0 y PB1
 
 	DDRC = 0XC0;	   // PC6 y PC7 como salida
 	PORTC = 0X00;      // Inicializa PC6 y PC7
@@ -176,11 +168,6 @@ void initTimer0(){
     // Configura el modo CTC (Clear Timer on Compare Match)
     TCCR0A |= (1 << WGM02);
 
-    // Configura el preescalador para que el temporizador cuente cada 1024 microsegundos
-    //TCCR0A |= (1 << CS02) | (0 << CS01) |(0 << CS00) | (1 <<WGM01) | (0 << WGM00);
-	//TCCR0A = (1 << WGM01) | (1 << CS01);
-    // Calcula el valor de OCR0A para 10 segundos
-	//Calculadora JP: Prescaler 1024, TCNT=49911, OCR1A=15624
 	TCCR0B |= (1 << CS01) | (1 << CS00);
 
 	OCR0A = 249;
@@ -229,7 +216,7 @@ void mct(){
 	// Deteccion de paquete
 	if(!FlagP3){
 		if(count!=999){
-			count++;         //count+=5;
+			count++;
 		}
 		else {
 			count=0;
@@ -289,7 +276,6 @@ void display(){
 		_delay_ms(DISPLAY_DELAY);
 		sbi(PORTA,HUND);
 	}
-
 }
 
 void decimalToBCD(unsigned char *unit, unsigned char *ten, unsigned char *hundred){
@@ -307,27 +293,20 @@ void outBCD(int n){
 }
 
 void alarm(){
-	//alarm10:
-	//* Debe activar la salida ALARM durante 10 segundos.
-	//* ¿Como debe actuar el sistema durante la alarma? (si cambia de modo).
-	//* Utilizar Temporizador.
-	//sbi(PORTA,ALARM);
 
 	if(FlagALARM){
-
 		//Variables de control
 		StateAlarm = 1;
 		ms_timer = 0;
 		FlagALARM = 0;
 
-		//Prender Rele
+		// Encender Rele
 		sbi(PORTA,ALARM);
-
 	}
 
-	//Preguntar si pasaron 10 segundos
+	// Verificar si pasaron 10 segundos
 	if(StateAlarm && ms_timer >= ALARM_TIME){
-		//Apagar rele
+		// Apagar rele
 		cbi(PORTA,ALARM);
 
 	}
