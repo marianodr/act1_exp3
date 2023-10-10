@@ -8,11 +8,14 @@
 #define F_CPU    16000000UL
 #define BOUNCE_DELAY 8 //ms
 #define DISPLAY_DELAY 5 //ms
-#define MINTHR      50
+#define ALARM_TIME 10000 //ms
+#define ALARM_PERIOD 60000 //ms
+#define MINTHR      5
 #define MAXTHR      400
+
 // Entradas:
 #define P1      PD1           // Selecciona el umbral
-#define P2      PD0           // Controla los modos de operacion: mcf(configuracion) y mct (contador) 
+#define P2      PD0           // Controla los modos de operacion: mcf(configuracion) y mct (contador)
 #define P3      PD2           // Simula el sensor contador
 // Salidas:
 #define NUM0       PA0
@@ -42,9 +45,9 @@
 
 // Variables globales
 // -------------------------------------------------------------------
-volatile int FlagP1 = 1, FlagP2 = 1, FlagP3 = 1, FlagALARM = 0;
+volatile int FlagP1 = 1, FlagP2 = 1, FlagP3 = 1, FlagALARM = 0, StateAlarm = 0, FlagPrueba = 0;
 int number = 0, count = 0, thresh = MINTHR, FlagDisplay = 1;
-unsigned int timer=0, actual = 0;
+unsigned int ms_timer=0, actual = 0;
 unsigned char unit, ten, hundred;
 
 // Declararacion de funciones
@@ -55,10 +58,11 @@ void initExternalInterrupts();
 void initTimer0();
 void mcf();
 void mct();
-//void alarm10();
+void alarm();
 void display();
 void decimalToBCD(unsigned char*, unsigned char*, unsigned char*);
 void outBCD(int n);
+
 
 // Interrupciones externas
 // -------------------------------------------------------------------
@@ -84,8 +88,8 @@ ISR(INT2_vect){
 }
 
 ISR(TIMER0_COMPA_vect) {
-    // Cada 1 segundo ocurre una interrupcion e incrementa el timer
-	timer++;
+    // Cada 1 milisegundo ocurre una interrupcion e incrementa el timer
+	ms_timer++;
 }
 
 // Programa
@@ -107,6 +111,7 @@ int main(void){
 			mct();
 		}
 		display();
+		alarm();
 	}
 }
 
@@ -129,29 +134,20 @@ void initPorts(){
 
 void boot(){
 	// Secuencia de Arranque
+	int Seq[]={3,2,1};
 	sbi(PORTA, NUM3); // Numero 8 en BCD
+	sbi(PORTA,ALARM); //Enciende la alarma
 
-	for(int i=0; i<5; i++){
-		for(int i=0; i<30; i++){
-			// Enciende y apaga display unidad
-			cbi(PORTA, UNIT);
-			_delay_ms(DISPLAY_DELAY);
-			sbi(PORTA, UNIT);
+	for(int i=0; i<3; i++){
 
-			// Enciende y apaga display decena
-			cbi(PORTA, TEN);
-			_delay_ms(DISPLAY_DELAY);
-			sbi(PORTA, TEN);
+		number=Seq[i];
+		FlagDisplay = 1;
 
-			// Enciende y apaga display centena
-			cbi(PORTA, HUND);
-			_delay_ms(DISPLAY_DELAY);
-			sbi(PORTA, HUND);
+		for(int i=0; i<60; i++){
+			display();
 		}
-
-		_delay_ms(500);
 	}
-
+	cbi(PORTA,ALARM);
 	PORTA = 0x70; // Deshabilita los puertos que controlan los transistores
 }
 
@@ -165,15 +161,13 @@ void initExternalInterrupts(){
 
 void initTimer0(){
     // Configura el modo CTC (Clear Timer on Compare Match)
-    TCCR0A |= (1 << WGM01);
+    TCCR0A |= (1 << WGM02);
 
-    // Configura el preescalador para que el temporizador cuente cada 1024 microsegundos
-    TCCR0B |= (1 << CS00) | (1 << CS02);
+    // Configura el preescalador para que el temporizador cuente cada 64 microsegundos
+	TCCR0B |= (1 << CS01) | (1 << CS00);
 
-    // Calcula el valor de OCR0A para 10 segundos
-	//Calculadora JP: Prescaler 1024, TCNT=49911, OCR1A=15624
-
-    OCR1A = 15624;
+	// Calcula el valor de OCR0A para 1 milisegundo
+	OCR0A = 249;
 
     // Habilita la interrupción de comparación para OCR0A
     TIMSK0 |= (1 << OCIE0A);
@@ -227,28 +221,17 @@ void mct(){
 		FlagP3=1;
 	}
 
-	// Se enciende la alarma si la cantidad de packs alcanzó el umbral
-	if(count>=thresh){
-		//alarm10();
-		if(!FlagALARM){
-			actual = timer;
-			FlagALARM = 1;
-			//Prender Rele
-			sbi(PORTA,ALARM);
-		}
-
-		//Preguntar si pasaron 10 segundos
-		if(timer-actual >= 10 && FlagALARM){
-			//Apagar rele
-			cbi(PORTA,ALARM);
-			FlagALARM = 0;
-		}
+	// Se enciende la alarma si la cantidad de packs alcanzó el umbral y si la alarma no se activo antes.
+	if(count>=thresh && !StateAlarm){
+		//TCNT0 = 0;		//Se resetea el registro del timer0
+		FlagALARM = 1;
 	}
 
 	// Reinicio de contador a traves de P1
 	if(!FlagP1){
 		count=0;
 		FlagP1=1;
+		StateAlarm = 0;
 	}
 
 	// Actualizacion del numero a mostrar en el display
@@ -290,7 +273,6 @@ void display(){
 		_delay_ms(DISPLAY_DELAY);
 		sbi(PORTA,HUND);
 	}
-
 }
 
 void decimalToBCD(unsigned char *unit, unsigned char *ten, unsigned char *hundred){
@@ -307,23 +289,28 @@ void outBCD(int n){
 	}
 }
 
-/* void alarm10(){
-	alarm10:
-	* Debe activar la salida ALARM durante 10 segundos.
-	* ¿Como debe actuar el sistema durante la alarma? (si cambia de modo).
-	* Utilizar Temporizador.
-	//sbi(PORTA,ALARM);
+void alarm(){
 
-	if(!FlagALARM){
-		sbi(PORTA,ALARM);
-		timer=0;
-		T
-		//FlagALARM = 1;
-	}
+	if(FlagALARM){
 
-	if(timer<10 && FlagALARM){
-		cbi(PORTA,ALARM);
-		timer=0;
+		//Variables de control
+		StateAlarm = 1;
+		ms_timer = 0;
 		FlagALARM = 0;
+
 	}
-}*/
+
+	if(StateAlarm){
+		if(ms_timer < ALARM_TIME){
+			sbi(PORTA,ALARM);
+		}else if (ms_timer < ALARM_PERIOD){
+			cbi(PORTA, ALARM);
+		}else{
+			TCNT0 = 0;
+			ms_timer = 0;
+		}
+	}else{
+		cbi(PORTA, ALARM);
+	}
+
+}
