@@ -45,7 +45,7 @@
 
 // Variables globales
 // -------------------------------------------------------------------
-volatile int FlagP1 = 1, FlagP2 = 1, FlagP3 = 1, FlagALARM = 0, StateAlarm = 0, FlagPrueba = 0;
+volatile int FlagP1 = 1, FlagP2 = 1, FlagP3 = 1, FlagALARM = 0, StateAlarm = 0;
 int number = 0, count = 0, thresh = MINTHR, FlagDisplay = 1;
 unsigned int ms_timer=0, actual = 0;
 unsigned char unit, ten, hundred;
@@ -105,7 +105,7 @@ int main(void){
 	// Inicio
 	while(1){
 		if(FlagP2){
-			mcf();           // Analizar la posibilidad de que mcf y mct retornen y asignen a number
+			mcf();
 		}
 		else{
 			mct();
@@ -121,9 +121,6 @@ void initPorts(){
 	// Se configura e inicializa los puertos
 	DDRA = 0xFF;     // Puerto A todo como salida
 	PORTA = 0x70;    // Inicializa el puerto A
-
-	//DDRB = 0x03;     // PB0 y PB1 como salida
-	//PORTB = 0x00;    // Inicializa PB0 y PB1
 
 	DDRC = 0XC0;	   // PC6 y PC7 como salida
 	PORTC = 0X00;      // Inicializa PC6 y PC7
@@ -214,7 +211,7 @@ void mct(){
 	// Deteccion de paquete
 	if(!FlagP3){
 		if(count!=999){
-			count++;         //count+=5;
+			count++;
 		}
 		else {
 			count=0;
@@ -294,7 +291,6 @@ void outBCD(int n){
 void alarm(){
 
 	if(FlagALARM){
-
 		//Variables de control
 		StateAlarm = 1;
 		ms_timer = 0;
