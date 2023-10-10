@@ -145,6 +145,7 @@ void boot(){
 
 		for(int i=0; i<60; i++){
 			display();
+			_delay_ms(10);
 		}
 	}
 	cbi(PORTA,ALARM);
@@ -223,8 +224,9 @@ void mct(){
 
 	// Se enciende la alarma si la cantidad de packs alcanzó el umbral y si la alarma no se activo antes.
 	if(count>=thresh && !StateAlarm){
-		//TCNT0 = 0;		//Se resetea el registro del timer0
 		FlagALARM = 1;
+	}if(count<thresh){
+		StateAlarm=0;
 	}
 
 	// Reinicio de contador a traves de P1
